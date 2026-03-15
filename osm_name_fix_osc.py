@@ -32,6 +32,7 @@ ADMIN_SUFFIXES = {
     "村":"Village",
     "社区":"Community",
     "市":"City",
+    "林区":"Forestry District",
     "区":"District",
     "自治县":"Autonomous County",
     "县":"County",
@@ -44,9 +45,10 @@ ADMIN_SUFFIXES = {
 
 
 NON_ADMIN_SUFFIXES = [
-    "新区","开发区","商贸区","度假区","核心区","商务区","管理区","经开区","起步区",
-    "保税区","合作区","中心区","经济区","集中区","产业园区","工业园区","旅游区","试验区",
-    "实验区","投资区","工业园小区","名胜区","风景区","示范区","直管区","产业小镇","科教园区"
+    "新区","开发区","商贸区","度假区","核心区","商务区","工业区","管理区","经开区","起步区",
+    "保税区","合作区","中心区","经济区","旅游区","试验区","实验区","投资区","集中区",
+    "产业园区","工业园区","科学园区","科教园区","盐化园区","教育园区","农业园区","示范园区"
+    "工业园小区","名胜区","风景区","示范区","直管区","产业小镇","生态区","资源区", "聚集区", "加工区"
 ]
 
 
@@ -84,13 +86,66 @@ ETHNIC_NAMES = {
     "民族":""
 }
 
+SPECIAL_PRONUNCIATION = {
+    "羊场":"羊肠", # 黔
+    "马号":"马嚎", # 黔
+    "陂面":"坡面",
+    "通什":"通杂", # 琼
+    "乐成":"悦成",
+#   "天台":"天胎", # 浙
+    "朝晖":"召晖",
+    "单集":"善集",
+    "行香":"形香",
+    "石湫":"石秋",
+    "乐桥":"悦桥",
+    "焦陂":"焦坡",
+    "六郎":"遛郎",
+    "单桥":"丹桥", # 皖
+    "都":"督",
+    "长":"常",
+    "干":"甘",
+    "处":"楚",
+    "戛":"嘎",
+#   "圩":"墟", # 粤/湘
+    "圩":"围", # 苏/皖
+    "泊":"伯",
+    "朝":"潮",
+    "什":"十",
+    "佛":"仏",
+    "重":"崇",
+    "曲":"屈",
+    "更":"庚",
+    "厦":"夏",
+    "咀":"嘴",
+    "尾":"苇",
+#   "涌":"冲", # 粤
+    "曾":"增",
+    "柏":"百",
+    "行":"杭", # 粤
+#   "六":"陆", # 苏/皖
+    "任":"仁",
+    "堨":"鄂", # 皖
+    "单":"善",
+    "涡":"郭", # 皖
+    "姥":"母", # 皖
+    "阚":"看", # 皖
+    "蚌":"迸", # 皖
+}
+
+SPECIAL_PUNCTUATION = [
+    "新村", "一路", "二路", "一桥", "二桥", "花园", 
+    "东路", "西路", "北路", "南路", "中路", "新路", 
+]
+
 FOREIGN_LANG_TAGS = [
     "name:af","name:ca","name:ceb","name:da","name:de","name:es","name:et",
     "name:eu","name:fr","name:gl","name:id","name:it","name:ki","name:mg",
     "name:nl","name:nn","name:no","name:pl","name:sv","name:tl","name:tr"
     ]
 
-SINITIC_LANG_TAGS = ["name:lzh","name:gan","name:yue"]
+SINITIC_LANG_TAGS = ["name:lzh","name:gan","name:yue","name:wuu"]
+
+CITIES_WITH_HISTORICAL_NAME = ["北京市", "上海市", "广州市", "南京市", "青岛市"]
 
 # ------------------ 工具函数 ------------------
 
@@ -101,6 +156,9 @@ def ends_with_admin(name):
 def remove_suffix(name):
     for s in ADMIN_SUFFIXES.keys():
         if name.endswith(s):
+            # 按照汉语的发音习惯，通名的字数一般不会少于专名
+            if len(s) >= 2 and len(name[:-len(s)]) < 2 and s != "街道":
+                    continue
             return name[:-len(s)], s
     return name, ""
 
@@ -127,75 +185,49 @@ def char_pinyin(chars, style=Style.NORMAL):
         if s.startswith(("a","ā","á","à","o","ō","e","é","è")):
             s = "'" + s
         result.append(s)
-    return "".join(result)
+    return "".join(result).replace(" '", " ")
 
 
 def zh_to_en(name_zh):
     base, suffix = split_admin(name_zh)
-    base = base.replace("陂面", "坡面")
-    base = base.replace("通什", "通杂")
-    base = base.replace("乐成", "月成")
-    base = base.replace("天台", "天胎")
-    base = base.replace("朝晖", "召晖")
-    base = base.replace("都", "督")
-    base = base.replace("长", "常")
-    base = base.replace("戛", "嘎")
-    base = base.replace("圩", "墟")
-    base = base.replace("卜", "捕")
-    base = base.replace("泊", "伯")
-    base = base.replace("朝", "潮")
-    base = base.replace("什", "十")
-    base = base.replace("佛", "仏")
-    base = base.replace("重", "崇")
-    base = base.replace("厦", "夏")
-    base = base.replace("咀", "嘴")
-    base = base.replace("尾", "苇")
-#   base = base.replace("涌", "冲")
-    base_py = char_pinyin(base, style=Style.NORMAL).capitalize().replace("v", "ü")
+    if not base:
+        print("***ERROR: Invalid name_zh: " + name_zh)
+        exit(0)
+    for k, v in SPECIAL_PRONUNCIATION.items():
+        base = base.replace(k, v)
+    for k in SPECIAL_PUNCTUATION:
+        if len(base) >= 4 and k in base[2:]:
+            base = base.replace(k, " " + k)
+    base_py = char_pinyin(base, style=Style.NORMAL).replace("v", "ü")
     suffix_py = ""
     if len(base) == 1:
         if suffix in ("村", "镇", "乡", "县", "市"):
-            suffix_py = " " + char_pinyin(suffix, style=Style.NORMAL).capitalize()
-
-    return base_py + suffix_py
+            suffix_py = " " + char_pinyin(suffix, style=Style.NORMAL)
+    strs = (base_py + " " + suffix_py).split()
+    strs = [s.capitalize() for s in strs]
+    return " ".join(strs)
 
 
 def zh_to_pinyin(name_zh):
     base, suffix = split_admin(name_zh)
-    base = base.replace("羊场", "羊肠")
-    base = base.replace("马号", "马嚎")
-    base = base.replace("陂面", "坡面")
-    base = base.replace("通什", "通杂")
-    base = base.replace("乐成", "月成")
-    base = base.replace("天台", "天胎")
-    base = base.replace("朝晖", "召晖")
-    base = base.replace("都", "督")
-    base = base.replace("长", "常")
-    base = base.replace("干", "甘")
-    base = base.replace("处", "楚")
-    base = base.replace("戛", "嘎")
-    base = base.replace("圩", "墟")
-    base = base.replace("泊", "伯")
-    base = base.replace("朝", "潮")
-    base = base.replace("什", "十")
-    base = base.replace("佛", "仏")
-    base = base.replace("重", "崇")
-    base = base.replace("曲", "屈")
-    base = base.replace("更", "庚")
-    base = base.replace("厦", "夏")
-    base = base.replace("咀", "嘴")
-    base = base.replace("尾", "苇")
-#   base = base.replace("涌", "冲")
-    base_py = char_pinyin(base, style=Style.TONE).capitalize()
-    suffix_py = char_pinyin(suffix, style=Style.TONE).capitalize()
-    if suffix_py:
-        return base_py + " " + suffix_py
-    return base_py
+    if not base:
+        print("***ERROR: Invalid name_zh: " + name_zh)
+        exit(0)
+    for k, v in SPECIAL_PRONUNCIATION.items():
+        base = base.replace(k, v)
+    for k in SPECIAL_PUNCTUATION:
+        if len(base) >= 4 and k in base[2:]:
+            base = base.replace(k, " " + k)
+    base_py = char_pinyin(base, style=Style.TONE)
+    suffix_py = char_pinyin(suffix, style=Style.TONE)
+    strs = (base_py + " " + suffix_py).split()
+    strs = [s.capitalize() for s in strs]
+    return " ".join(strs)
 
 
 def process_ethnic(name, tags):
     for e in ETHNIC_NAMES.keys():
-        if e in name:
+        if e in name and name != "民族街道":
             tags["official_name"] = name
             tags["official_name:zh"] = name
             name = name.replace(e,"")
@@ -210,7 +242,7 @@ def process_alt_name(tags):
     if not alt and not alt_zh and not alt_en:
         return None
 
-    combined = ";".join((alt, alt_zh, alt_en))
+    combined = ";".join((alt, alt_zh, alt_en)).replace(":", ";")
     parts = [p.strip() for p in combined.split(";") if p.strip()]
 
     seen = set()
@@ -248,6 +280,15 @@ def process_alt_name(tags):
             if len(z) > 1:
                  short_zh = z
             continue
+        if "办事处" in z:
+            continue
+        skip = False
+        for v_zh in ADMIN_SUFFIXES.keys():
+            if z == base_zh + v_zh:
+                skip = True
+                break
+        if skip:
+            continue
         alt_zh.append(z)
 
     # ---------- 英文处理 ----------
@@ -258,6 +299,18 @@ def process_alt_name(tags):
 
     for e in en:
         if e == name_en:
+            continue
+        if e == tags.get("official_name:en"):
+            continue
+        skip = False
+        for v_zh in ADMIN_SUFFIXES.keys():
+            v_en = char_pinyin(v_zh)
+            e_norm = e.replace("-", "").replace(" ", "").lower()
+            n_norm = name_en.replace("-", "").replace(" ", "").lower()
+            if e_norm == n_norm + v_en:
+                skip = True
+                break
+        if skip:
             continue
         matched = False
         for suf in ADMIN_SUFFIXES.values():
@@ -294,7 +347,7 @@ def process_old_name(tags):
     if not old and not old_zh and not old_en:
         return None
 
-    combined = ";".join((old, old_zh, old_en))
+    combined = ";".join((old, old_zh, old_en)).replace(":", ";")
     parts = [p.strip() for p in combined.split(";") if p.strip()]
 
     seen = set()
@@ -396,17 +449,6 @@ def build_official_name_en(name_zh, name_en):
     if suffix not in ["自治县","族镇","族乡"]:
         return f"{name_en} {suffix_en}"
 
-
-#    ethnic_names = []
-#    for zh, en in ETHNIC_NAMES.items():
-#        if zh in name_zh:
-#            if en:
-#                ethnic_names.append(en)
-#    ethnic_names = list(dict.fromkeys(ethnic_names))
-#    ethnic_text = join_ethnic_names(ethnic_names)
-#    if ethnic_text:
-#        return f"{name_en} {ethnic_text} {suffix_en}"
-
     ethnic_names = []
     
     base = name_zh
@@ -437,12 +479,11 @@ def build_official_name_en(name_zh, name_en):
     if ethnic_text:
         return f"{name_en} {ethnic_text} {suffix_en}"
 
-
     return f"{name_en} {suffix_en}"
 
 
 def remove_non_place_tags(tags,obj_id):
-    for k in ["building","office","amenity","shop","ele","natural"]:
+    for k in ["amenity","building","ele","fee","natural","office","shop"]:
         if k in tags:
             logging.info(f"remove {k} tag {obj_id}")
             tags.pop(k)
@@ -475,6 +516,7 @@ class OSCWriter:
     def close(self):
         tree = ET.ElementTree(self.root)
         tree.write(self.filename,encoding="utf-8",xml_declaration=True)
+
 
 # ------------------ Handler ------------------
 
@@ -514,7 +556,8 @@ class NameFixer(osmium.SimpleHandler):
         ensure_place_cn(tags, official_zh)
 
         new_ht = zh_to_hant(tags["name:zh-Hans"])
-        if "name:zh-Hant" in tags and tags["name:zh-Hant"] != new_ht:
+        old_ht = tags.get("name:zh-Hant") or ""
+        if old_ht != new_ht and len(old_ht) == len(new_ht):
             logging.info(f"name:zh-Hant mismatch {name} {tags['name:zh-Hant']} <> {new_ht}, skip")
         else:
             tags["name:zh-Hant"] = new_ht
@@ -528,6 +571,17 @@ class NameFixer(osmium.SimpleHandler):
         if "name:zh-Latn-pinyin" in tags and tags["name:zh-Latn-pinyin"] != new_py:
             logging.info(f"name:zh-Latn-pinyin override {name} {tags['name:zh-Latn-pinyin']} -> {new_py}")
         tags["name:zh-Latn-pinyin"] = new_py
+
+ 
+        official_en = build_official_name_en(official_zh, new_en)
+        if tags.get("place:CN") in ("autonomous_county", "ethnic_town", "ethnic_township"):
+            tags["official_name"] = official_zh 
+            tags["official_name:zh"] = official_zh
+            old_official_en = tags.get("official_name:en") or ""
+            if official_en != old_official_en:
+                if old_official_en:
+                    logging.info(f"official_name:en override {name} {old_official_en} -> {official_en}")
+                tags["official_name:en"] = official_en
 
 
         alt = process_alt_name(tags)
@@ -559,22 +613,17 @@ class NameFixer(osmium.SimpleHandler):
                 tags.pop("old_name", None)
                 tags.pop("old_name:zh", None)
 
-        
-        official_en = build_official_name_en(official_zh, new_en)
-        if "official_name:en" in tags or tags.get("place:CN") in ("autonomous_county", "ethnic_town", "ethnic_township"):
+
+        if "official_name:en" in tags:
             tags["official_name"] = official_zh 
             tags["official_name:zh"] = official_zh
-            old_official_en = tags.get("official_name:en") or ""
-            if official_en != old_official_en:
-                if old_official_en:
-                    logging.info(f"official_name:en override {name} {old_official_en} -> {official_en}")
-                tags["official_name:en"] = official_en
-                
 
-        for lang in FOREIGN_LANG_TAGS:
-            if lang in tags and tags[lang]!=new_en:
-                logging.info(f"{lang} override {n.id}: {tags[lang]} -> {new_en}")
-                tags[lang] = new_en
+                
+        if not name in CITIES_WITH_HISTORICAL_NAME:
+            for lang in FOREIGN_LANG_TAGS:
+                if lang in tags and tags[lang]!=new_en:
+                    logging.info(f"{lang} override {n.id}: {tags[lang]} -> {new_en}")
+                    tags[lang] = new_en
 
         for lang in SINITIC_LANG_TAGS:
             if lang in tags:
@@ -588,6 +637,7 @@ class NameFixer(osmium.SimpleHandler):
             wiki_name = tags.get("official_name", tags["name:zh"])
             if "wikipedia" not in tags or not tags["wikipedia"].startswith("zh:"):
                 tags["wikipedia"] = "zh:" + wiki_name
+
 
         # 写入修改过的节点
         if tags != dict(n.tags):
