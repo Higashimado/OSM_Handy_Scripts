@@ -28,7 +28,7 @@
 2. 使用 `official_name` 或 `name` 标签生成相应的 `wikipedia` 标签，但不覆盖原有标签的值
 3. 强制使用不含通名、无声调的的汉语拼音拉丁化方案（即 `name:en`）作为各使用拉丁字母的欧洲语言对应标签（参见 `FOREIGN_LANG_TAGS`）的值，但拥有已被广泛使用的历史名称的城市除外（参见 `CITIES_WITH_HISTORICAL_NAME`）
 4. 强制使用繁体中文（即 `name:zh-Hant`）作为国内各方言对应标签（参见 `SINITIC_LANG_TAGS`）的值
-5. 单字地名处理规则按照 OSM 中国社区的约定，不使用单字名作为 `alt_name` 或 `short_name`，了，拉丁化时通名大写（如“杨镇”拉丁化成 *Yang Zhen*）
+5. 单字地名处理规则按照 OSM 中国社区的约定，不使用单字名作为 `alt_name` 或 `short_name`，拉丁化时通名大写（如“杨镇”拉丁化成 *Yang Zhen*）
 6. **分词翻译：** 多字地名在拉丁化时按汉语拼音习惯进行分词（如“长江二桥街道”拉丁化成 *Changjiang Erqiao*，参见 `SPECIAL_PUNCTUATION`）
 7. 删除不适合在 `place` 节点上使用的标签（如 `building` 等，参见 `remove_non_place_tags(tags,obj_id)`
 
