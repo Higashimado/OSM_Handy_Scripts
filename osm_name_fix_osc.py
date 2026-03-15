@@ -48,7 +48,8 @@ NON_ADMIN_SUFFIXES = [
     "新区","开发区","商贸区","度假区","核心区","商务区","工业区","管理区","经开区","起步区",
     "保税区","合作区","中心区","经济区","旅游区","试验区","实验区","投资区","集中区",
     "产业园区","工业园区","科学园区","科教园区","盐化园区","教育园区","农业园区","示范园区"
-    "工业园小区","名胜区","风景区","示范区","直管区","产业小镇","生态区","资源区", "聚集区", "加工区"
+    "工业园小区","名胜区","风景区","示范区","直管区","产业小镇","生态区","资源区", "聚集区", "加工区",
+    "保护特区"
 ]
 
 
@@ -87,12 +88,12 @@ ETHNIC_NAMES = {
 }
 
 SPECIAL_PRONUNCIATION = {
-    "羊场":"羊肠", # 黔
-    "马号":"马嚎", # 黔
+    "羊场":"羊肠",  # 黔
+    "马号":"马嚎",  # 黔
     "陂面":"坡面",
-    "通什":"通杂", # 琼
+    "通什":"通杂",  # 琼
     "乐成":"悦成",
-#   "天台":"天胎", # 浙
+#   "天台":"天胎",  # 浙
     "朝晖":"召晖",
     "单集":"善集",
     "行香":"形香",
@@ -100,14 +101,20 @@ SPECIAL_PRONUNCIATION = {
     "乐桥":"悦桥",
     "焦陂":"焦坡",
     "六郎":"遛郎",
-    "单桥":"丹桥", # 皖
+    "单桥":"丹桥",  # 皖
+    "洩湖":"野湖",  # 陕
+    "拓石":"踏石",  # 陕
+    "解家":"谢家",  # 陕
+    "长官":"掌官",
+    "华阴":"化阴",  # 陕
+    "召公":"绍公",  # 陕
     "都":"督",
     "长":"常",
     "干":"甘",
     "处":"楚",
     "戛":"嘎",
-#   "圩":"墟", # 粤/湘
-    "圩":"围", # 苏/皖
+#   "圩":"墟",      # 粤/湘
+    "圩":"围",      # 苏/皖
     "泊":"伯",
     "朝":"潮",
     "什":"十",
@@ -118,18 +125,19 @@ SPECIAL_PRONUNCIATION = {
     "厦":"夏",
     "咀":"嘴",
     "尾":"苇",
-#   "涌":"冲", # 粤
+#   "涌":"冲",      # 粤
     "曾":"增",
     "柏":"百",
-    "行":"杭", # 粤
-#   "六":"陆", # 苏/皖
+    "行":"杭",      # 粤
+#   "六":"陆",      # 苏/皖
     "任":"仁",
-    "堨":"鄂", # 皖
+    "堨":"鄂",      # 皖
     "单":"善",
-    "涡":"郭", # 皖
-    "姥":"母", # 皖
-    "阚":"看", # 皖
-    "蚌":"迸", # 皖
+#   "涡":"郭",      # 皖
+    "姥":"母",      # 皖
+    "阚":"看",      # 皖
+    "蚌":"迸",      # 皖
+    "堡":"补",      # 晋/陕/冀/蒙
 }
 
 SPECIAL_PUNCTUATION = [
@@ -234,7 +242,40 @@ def process_ethnic(name, tags):
     return name
 
 
+def check_admin_level(name_1, name_2):
+
+    admin_level_1 = 0
+    admin_level_2 = 0
+
+    # No check for admin_level = 10
+    for s in ("村", "社区"):
+        if name_1.endswith(s) or name_2.endswith(s):
+            return True
+
+    norm_1 = re.sub(r'[（\(].*?[\)）]', '', name_1)
+    norm_2 = re.sub(r'[（\(].*?[\)）]', '', name_2)
+
+    norm_1 = norm_1.replace("-", "").replace(" ", "").lower()
+    norm_2 = norm_2.replace("-", "").replace(" ", "").lower()
+
+    for s in ("镇", "乡", "街道", "zhen", "xiang", "jiedao", "town", "township", "subdistrict"):
+        if norm_1.endswith(s) and admin_level_1 == 0:
+            admin_level_1 = 8
+        if norm_2.endswith(s) and admin_level_2 == 0:
+            admin_level_2 = 8
+
+    for s in ("市", "县", "区", "shi", "xian", "qu", "city", "county", "district"):
+        if norm_1.endswith(s) and admin_level_1 == 0:
+            admin_level_1 = 6
+        if norm_2.endswith(s) and admin_level_2 == 0:
+            admin_level_2 = 6
+
+    return admin_level_1 == admin_level_2 or admin_level_1 * admin_level_2 == 0
+
+
 def process_alt_name(tags):
+
+    # ---------- 分割 alt_name ----------
 
     alt = tags.get("alt_name") or ""
     alt_zh = tags.get("alt_name:zh") or ""
@@ -261,26 +302,44 @@ def process_alt_name(tags):
         else:
             en.append(p)
 
+    # ---------- 分割 short_name ----------
+
+    short_name = tags.get("short_name") or ""
+    short_name_zh = tags.get("short_name:zh") or ""
+    combined = ";".join((short_name, short_name_zh)).replace(":", ";")
+    parts = [p.strip() for p in combined.split(";") if p.strip()]
+    seen = set()
+    unique_parts = []
+    for p in parts:
+        if p not in seen:
+            unique_parts.append(p)
+            seen.add(p)
+    parts = unique_parts
+    short_zh = parts
+
     # ---------- 中文处理 ----------
 
     name_zh = tags["name"]
+    name_zht = tags["name:zh-Hant"]
+
     base_zh, _ = remove_suffix(name_zh)
+    base_zht, _ = remove_suffix(name_zht)
 
     alt_zh = []
-    short_zh = None
-
     for z in zh:
         if z == name_zh:
             continue
-        if z == tags.get("name:zh-Hant"):
+        if z == name_zht:
             continue
         if z == tags.get("official_name"):
             continue
         if z == base_zh:
-            if len(z) > 1:
-                 short_zh = z
+            if not z in short_zh:
+                short_zh.append(z)
             continue
         if "办事处" in z:
+            continue
+        if not check_admin_level(name_zh, z):
             continue
         skip = False
         for v_zh in ADMIN_SUFFIXES.keys():
@@ -294,13 +353,15 @@ def process_alt_name(tags):
     # ---------- 英文处理 ----------
 
     name_en = tags["name:en"]
-    alt_en = []
     official_en = None
 
+    alt_en = []
     for e in en:
         if e == name_en:
             continue
         if e == tags.get("official_name:en"):
+            continue
+        if not check_admin_level(name_en, e):
             continue
         skip = False
         for v_zh in ADMIN_SUFFIXES.keys():
@@ -323,8 +384,10 @@ def process_alt_name(tags):
 
     # ---------- 写回 tags ----------
 
-    if short_zh and not "short_name" in tags:
-        tags["short_name"] = short_zh
+    if short_zh:
+        tags["short_name"] = ";".join(short_zh)
+        if "short_name:zh" in tags:
+            tags["short_name:zh"] = tags.get("short_name")
 
     if official_en:
         if not "official_name:en" in tags:
@@ -377,6 +440,8 @@ def process_old_name(tags):
     for z in zh:
         if z == name_zh:
             continue
+        if not check_admin_level(name_zh, z):
+            continue
         if z == base_zh:
             if len(z) > 1:
                  short_zh = z
@@ -384,7 +449,19 @@ def process_old_name(tags):
                 continue
         old_zh.append(z)
 
-    old_en = en
+    # ---------- 英文处理 ----------
+
+    name_en = tags.get("name:en")
+    old_en = []
+
+    for e in en:
+        if e == name_en:
+            continue
+        if e == tags.get("official_name:en"):
+            continue
+        if not check_admin_level(name_en, e):
+            continue
+        old_en.append(e)
 
     # ---------- 写回 tags ----------
 
@@ -445,9 +522,13 @@ def build_official_name_en(name_zh, name_en):
     if not suffix:
         return None
 
+    norm_en = name_en
+    for en in ("Cun", "Shi", "Xian", "Xiang", "Zhen"):
+        norm_en = norm_en.replace(" " + en, "")
+
     suffix_en = ADMIN_SUFFIXES[suffix]
     if suffix not in ["自治县","族镇","族乡"]:
-        return f"{name_en} {suffix_en}"
+        return f"{norm_en} {suffix_en}"
 
     ethnic_names = []
     
@@ -477,9 +558,9 @@ def build_official_name_en(name_zh, name_en):
     
     ethnic_text = join_ethnic_names(ethnic_names)
     if ethnic_text:
-        return f"{name_en} {ethnic_text} {suffix_en}"
+        return f"{norm_en} {ethnic_text} {suffix_en}"
 
-    return f"{name_en} {suffix_en}"
+    return f"{norm_en} {suffix_en}"
 
 
 def remove_non_place_tags(tags,obj_id):
@@ -510,8 +591,8 @@ class OSCWriter:
         for k, v in tags.items():
             if v is not None:
                 ET.SubElement(node_elem, "tag", k=k, v=v)
-            else:
-                logging.warning(f"Tag '{k}' is None for node {node.id}, skipped")
+#           else:
+#               logging.warning(f"Tag '{k}' is None for node {node.id}, skipped")
 
     def close(self):
         tree = ET.ElementTree(self.root)
@@ -574,7 +655,8 @@ class NameFixer(osmium.SimpleHandler):
 
  
         official_en = build_official_name_en(official_zh, new_en)
-        if tags.get("place:CN") in ("autonomous_county", "ethnic_town", "ethnic_township"):
+        if (tags.get("place:CN") in ("autonomous_county", "ethnic_town", "ethnic_township")
+            or (len(name) == 2 and tags.get("place:CN") in ("county", "town", "township"))):
             tags["official_name"] = official_zh 
             tags["official_name:zh"] = official_zh
             old_official_en = tags.get("official_name:en") or ""
@@ -622,21 +704,24 @@ class NameFixer(osmium.SimpleHandler):
         if not name in CITIES_WITH_HISTORICAL_NAME:
             for lang in FOREIGN_LANG_TAGS:
                 if lang in tags and tags[lang]!=new_en:
-                    logging.info(f"{lang} override {n.id}: {tags[lang]} -> {new_en}")
+                    logging.info(f"{lang} override {name}: {tags[lang]} -> {new_en}")
                     tags[lang] = new_en
 
         for lang in SINITIC_LANG_TAGS:
             if lang in tags:
                 new_val = tags["name:zh-Hant"]
                 if tags[lang] != new_val:
-                    logging.info(f"{lang} override {n.id}: {tags[lang]} -> {new_val}")
+                    logging.info(f"{lang} override {name}: {tags[lang]} -> {new_val}")
                 tags[lang] = new_val
 
 
         if "capital" in tags and not tags.get("place:CN") in ("village", "neighbourhood"):
-            wiki_name = tags.get("official_name", tags["name:zh"])
-            if "wikipedia" not in tags or not tags["wikipedia"].startswith("zh:"):
-                tags["wikipedia"] = "zh:" + wiki_name
+            old_wiki = tags.get("wikipedia") or ""
+            new_wiki = "zh:" + (tags.get("official_name") or tags.get("name:zh"))
+            if not old_wiki.startswith("zh:") or not check_admin_level(new_wiki, old_wiki):
+                if old_wiki:
+                    logging.info(f"wikipedia override {name}: {old_wiki} -> {new_wiki}")
+                tags["wikipedia"] = new_wiki
 
 
         # 写入修改过的节点
